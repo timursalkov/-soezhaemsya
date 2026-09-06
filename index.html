@@ -294,13 +294,8 @@ function buildExportData(){
 }
 function app(){return document.getElementById('app')}
 function render(){
- const actualComplete=isTestComplete();
- if(state.completed!==actualComplete && state.started){
-   state.completed=actualComplete;
-   save();
- }
  if(!state.started){start();return}
- if(state.completed && actualComplete){complete();return}
+ if(state.completed){complete();return}
  question();
 }
 function start(){
