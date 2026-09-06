@@ -59,7 +59,7 @@ h1{font-size:36px;line-height:1.03;letter-spacing:-.045em;margin:0 0 10px;font-w
 .option.multi.selected::before{border-color:var(--accent);background:var(--accent);box-shadow:none}
 .option.multi.selected::after{content:"✓";position:absolute;left:20px;top:50%;transform:translateY(-52%);color:#fff;font-size:13px;font-weight:800}
 .counter{font-size:13px;color:var(--muted);margin:-12px 0 18px}
-.completion-hint{margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.72);border:1px solid rgba(20,30,45,.08);color:#596273;font-size:13px;line-height:1.35;text-align:center}.completion-hint strong{color:#202633}.bottom{margin-top:auto;padding-top:12px;padding-bottom:4px}
+.bottom{margin-top:auto;padding-top:12px;padding-bottom:4px}
 .textarea{width:100%;min-height:116px;resize:none;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.86);padding:16px;font-size:16px;line-height:1.45;color:var(--text);outline:none;box-shadow:0 4px 16px rgba(60,75,105,.03)}
 .textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95,131,232,.10)}
 .scale-wrap{background:rgba(255,255,255,.72);border:1px solid var(--line);border-radius:22px;padding:22px 18px;margin-bottom:22px}
@@ -319,12 +319,7 @@ function start(){
 }
 function chrome(q){return `<div class="topbar"><button class="icon-btn" id="backBtn" aria-label="Назад">‹</button><button class="nav-progress-btn" id="openNavigator" aria-label="Открыть список вопросов">${q.id} / 89</button></div><div class="progress"><span style="width:${q.id/89*100}%"></span></div><div class="question-head"><div class="block-label">БЛОК ${q.block} / 13</div><div class="block-title">${esc(q.blockTitle)}</div></div>`}
 function footer(disabled){
- const isLast=state.current===88;
- const missing=isLast?QUESTIONS.filter(q=>!answered(state.answers[q.id],q)).length:0;
- const hint=isLast&&missing>0
-   ? `<div class="completion-hint">Осталось ответить: <strong>${missing}</strong>. Нажми «Завершить», чтобы открыть список пропущенных вопросов.</div>`
-   : '';
- return `${hint}<div class="bottom"><div class="saved" data-saved></div><button class="primary" id="nextBtn" ${disabled?'disabled':''}>${isLast?'Завершить':'Далее →'}</button></div>`;
+ return `<div class="bottom"><div class="saved" data-saved></div><button class="primary" id="nextBtn" ${disabled?'disabled':''}>${state.current===88?'Завершить':'Далее →'}</button></div>`;
 }
 
 function openNavigator(){
@@ -511,21 +506,7 @@ function next(){
    save();
    render();
  }else{
-   if(!isTestComplete()){
-     state.completed=false;
-     save();
-     const missing=QUESTIONS.filter(q=>!answered(state.answers[q.id],q)).length;
-     openNavigator();
-     setTimeout(()=>{
-       const nav=document.querySelector('.navigator');
-       if(nav){
-         const title=nav.querySelector('.nav-title');
-         if(title) title.textContent=`Осталось ответить: ${missing}`;
-       }
-     },0);
-     return;
-   }
-   state.completed=true;
+   state.completed=isTestComplete();
    save();
    render();
  }
