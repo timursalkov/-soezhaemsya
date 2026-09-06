@@ -272,6 +272,8 @@ function bind(q,multi=false){
    save();
    render();
  });
+
+ document.querySelectorAll('[data-extra-multi]').forEach(b=>b.onclick=()=>{const cur=state.answers[q.id]||{};const arr=Array.isArray(cur.extraMulti)?[...cur.extraMulti]:[];const i=Number(b.dataset.extraMulti);const max=Number.isFinite(Number(q.extra&&q.extra.max))?Number(q.extra.max):2;const nextArr=arr.includes(i)?arr.filter(x=>x!==i):(arr.length<max?[...arr,i]:arr);state.answers[q.id]={...cur,extraMulti:nextArr};save();render();});
 }
 
 function scaleMarkup(id,val,min,max){
@@ -364,8 +366,7 @@ function extraScenario(q,v){
  const e=q.extra; let h='<div class="extra">';
  if(e.kind==="scale") h+=`<div class="subquestion">${esc(e.label)}</div>${scaleMarkup("extraScale",v.extraScale,e.min,e.max)}`;
  if(e.kind==="single") h+=`<div class="subquestion">${esc(e.label)}</div><div class="option-list">${e.options.map((o,i)=>`<button type="button" class="option extra-choice ${v.extraChoice===i?"selected":""}" data-extra-choice="${i}">${esc(o)}</button>`).join("")}</div>`;
- if(e.kind==="multi"){const arr=Array.isArray(v.extraMulti)?v.extraMulti:[];const max=Number.isFinite(Number(e.max))?Number(e.max):2;h+=`<div class="subquestion">${esc(e.label)}</div><div class="option-list">${e.options.map((o,i)=>`<button type="button" class="option multi extra-multi ${arr.includes(i)?"selected":""}" data-extra-multi="${i}">${esc(o)}</button>`).join("")}</div><div class="counter">${arr.length} / ${max} выбрано</div><div class="subquestion">${esc(e.scaleLabel||e.extraScale||"")}</div>${scaleMarkup("extraScale",v.extraScale,e.min,e.maxLabel||e.max)}`;}
- if(e.kind==="single"&&e.extraScale)h+=`<div class="subquestion">${esc(e.extraScale)}</div>${scaleMarkup("extraScale",v.extraScale,e.min,e.max)}`;
+ if(e.kind==="multi"){const arr=Array.isArray(v.extraMulti)?v.extraMulti:[];const max=Number.isFinite(Number(e.max))?Number(e.max):2;h+=`<div class="subquestion">${esc(e.label)}</div><div class="option-list">${e.options.map((o,i)=>`<button type="button" class="option multi extra-multi ${arr.includes(i)?"selected":""}" data-extra-multi="${i}">${esc(o)}</button>`).join("")}</div><div class="counter">${arr.length} / ${max} выбрано</div><div class="subquestion">${esc(e.scaleLabel||e.extraScale||"")}</div>${scaleMarkup("extraScale",v.extraScale,e.min,e.maxLabel||e.max)}`;}if(e.kind==="single"&&e.extraScale)h+=`<div class="subquestion">${esc(e.extraScale)}</div>${scaleMarkup("extraScale",v.extraScale,e.min,e.max)}`;
  return h+"</div>";
 }
 function next(){if(!answered(state.answers[QUESTIONS[state.current].id]))return;if(state.current<88){state.current++;save();render()}else{state.completed=true;save();render()}window.scrollTo({top:0,behavior:'smooth'})}
