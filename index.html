@@ -322,6 +322,14 @@ function footer(disabled){
  return `<div class="bottom"><div class="saved" data-saved></div><button class="primary" id="nextBtn" ${disabled?'disabled':''}>${state.current===88?'Завершить':'Далее →'}</button></div>`;
 }
 
+function opts(q,val,multi=false,extra=false){
+ return q.options.map((o,i)=>{
+   const selected=multi?Array.isArray(val)&&val.includes(i):val===i;
+   const isOther=/^другое$/i.test(String(o).trim());
+   return `<button type="button" class="option ${multi?'multi ':''}${selected?'selected':''}" data-${extra?'extra-':''}opt="${i}" data-other="${isOther?'1':'0'}">${esc(o)}</button>`;
+ }).join('')
+}
+
 function openNavigator(){
  const groups={};
  QUESTIONS.forEach((q,i)=>{
@@ -506,7 +514,16 @@ function next(){
    save();
    render();
  }else{
-   state.completed=isTestComplete();
+   if(!isTestComplete()){
+     state.completed=false;
+     save();
+     const missing=QUESTIONS.filter(q=>!answered(state.answers[q.id],q)).length;
+     openNavigator();
+     const title=document.querySelector('.question-nav-title');
+     if(title) title.textContent=`Осталось ответить: ${missing}`;
+     return;
+   }
+   state.completed=true;
    save();
    render();
  }
