@@ -512,15 +512,6 @@ function next(){
    save();
    render();
  }else{
-   if(!isTestComplete()){
-     state.completed=false;
-     save();
-     const missing=QUESTIONS.filter(q=>!answered(state.answers[q.id],q)).length;
-     openNavigator();
-     const title=document.querySelector('.question-nav-title');
-     if(title) title.textContent=`Осталось ответить: ${missing}`;
-     return;
-   }
    state.completed=true;
    save();
    render();
@@ -530,7 +521,7 @@ function next(){
 function back(){if(state.current>0){state.current--;save();render();window.scrollTo({top:0,behavior:'smooth'})}else{state.started=false;save();render()}}
 function complete(){
  const payload=buildExportData();
- app().innerHTML=`<section class="screen center-screen completion"><div class="completion-icon">✓</div><h2>Тест завершён</h2><p>Ответы сохранены локально на этом устройстве. Можно вернуться в сохранённый проект и изменить любой вопрос.</p><div class="actions"><button type="button" class="primary" id="projectBtn">Вернуться к проекту</button><button type="button" class="secondary" id="exportBtn">Скачать ответы</button><button type="button" class="secondary" id="restartBtn">Пройти заново</button></div></section>`;
+ app().innerHTML=`<section class="screen center-screen completion"><div class="completion-icon">✓</div><h2>Тест завершён</h2><p>Ответы сохранены локально на этом устройстве. Можно вернуться в сохранённый проект и изменить любой вопрос. Если какие-то вопросы пропущены, они сохраняются в JSON как пропущенные.</p><div class="actions"><button type="button" class="primary" id="projectBtn">Вернуться к проекту</button><button type="button" class="secondary" id="exportBtn">Скачать ответы</button><button type="button" class="secondary" id="restartBtn">Пройти заново</button></div></section>`;
  document.getElementById('projectBtn').onclick=()=>{state.completed=false;state.started=true;save();render()};
  document.getElementById('exportBtn').onclick=()=>{
    const payload=buildExportData();
