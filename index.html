@@ -38,6 +38,7 @@ h1{font-size:36px;line-height:1.03;letter-spacing:-.045em;margin:0 0 10px;font-w
 .subtitle{font-size:18px;line-height:1.35;color:#697386;margin:0 0 28px}
 .meta{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 30px}
 .pill{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(226,232,240,.9);font-size:13px;color:#657085}
+.primary,.secondary{position:relative;z-index:2;pointer-events:auto;-webkit-tap-highlight-color:transparent}
 .primary{width:100%;min-height:56px;border:0;border-radius:17px;background:var(--accent);color:#fff;font-weight:700;font-size:17px;box-shadow:0 12px 28px rgba(95,131,232,.25);transition:transform .12s ease,background .15s ease}
 .primary:active{transform:scale(.985)}
 .primary:disabled{opacity:.42;box-shadow:none}
@@ -308,14 +309,11 @@ function start(){
  const resumeQuestion=Math.min(89,Math.max(1,state.current+1));
  const buttonLabel=state.completed?"Открыть сохранённый проект":(hasProject?"Продолжить тест":"Начать тест");
  const progressText=state.completed?`Тест завершён. Сохранены ответы: ${answeredCount} из 89.`:`Сохранённый прогресс: вопрос ${resumeQuestion} из 89.`;
- app().innerHTML=`<section class="screen center-screen"><div class="start-card"><div class="brand-mark"></div><div class="kicker">Тест перед совместной жизнью</div><h1>СЪЕЗЖАЕМСЯ</h1><p class="subtitle">89 вопросов о бытовых привычках, ожиданиях, границах и договорённостях перед совместной жизнью.</p><div class="meta"><span class="pill">89 вопросов</span><span class="pill">iPhone / Safari</span></div><label class="helper" for="name">Имя</label><input id="name" class="select" style="margin:7px 0 14px" value="${esc(state.name)}" placeholder="Введите имя" autocomplete="name"><button class="primary" id="startBtn">${buttonLabel}</button>${hasProject?`<div class="resume-card">${progressText}</div><button class="secondary" id="restartBtn" style="margin-top:10px">Начать заново</button>`:''}</div></section>`;
+ app().innerHTML=`<section class="screen center-screen"><div class="start-card"><div class="brand-mark"></div><div class="kicker">Тест перед совместной жизнью</div><h1>СЪЕЗЖАЕМСЯ</h1><p class="subtitle">89 вопросов о бытовых привычках, ожиданиях, границах и договорённостях перед совместной жизнью.</p><div class="meta"><span class="pill">89 вопросов</span><span class="pill">iPhone / Safari</span></div><label class="helper" for="name">Имя</label><input id="name" class="select" style="margin:7px 0 14px" value="${esc(state.name)}" placeholder="Введите имя" autocomplete="name"><button type="button" class="primary" id="startBtn">${buttonLabel}</button>${hasProject?`<div class="resume-card">${progressText}</div><button type="button" class="secondary" id="restartBtn" style="margin-top:10px">Начать заново</button>`:''}</div></section>`;
  document.getElementById('name').oninput=e=>{state.name=e.target.value;save()};
- document.getElementById('startBtn').onclick=()=>{state.started=true;state.completed=false;save();render()};
+ document.getElementById('startBtn').onclick=startTestAction;
  const restart=document.getElementById('restartBtn');
- if(restart) restart.onclick=()=>{
-   if(!confirm('Начать тест заново? Сохранённые ответы будут удалены.')) return;
-   state.current=0;state.answers={};state.otherTexts={};state.completed=false;state.started=true;save();render();
- };
+ if(restart) restart.onclick=restartTestAction;
 }
 function chrome(q){return `<div class="topbar"><button class="icon-btn" id="backBtn" aria-label="Назад">‹</button><button class="nav-progress-btn" id="openNavigator" aria-label="Открыть список вопросов">${q.id} / 89</button></div><div class="progress"><span style="width:${q.id/89*100}%"></span></div><div class="question-head"><div class="block-label">БЛОК ${q.block} / 13</div><div class="block-title">${esc(q.blockTitle)}</div></div>`}
 function footer(disabled){
@@ -532,7 +530,7 @@ function next(){
 function back(){if(state.current>0){state.current--;save();render();window.scrollTo({top:0,behavior:'smooth'})}else{state.started=false;save();render()}}
 function complete(){
  const payload=buildExportData();
- app().innerHTML=`<section class="screen center-screen completion"><div class="completion-icon">✓</div><h2>Тест завершён</h2><p>Ответы сохранены локально на этом устройстве. Можно вернуться в сохранённый проект и изменить любой вопрос.</p><div class="actions"><button class="primary" id="projectBtn">Вернуться к проекту</button><button class="secondary" id="exportBtn">Скачать ответы</button><button class="secondary" id="restartBtn">Пройти заново</button></div></section>`;
+ app().innerHTML=`<section class="screen center-screen completion"><div class="completion-icon">✓</div><h2>Тест завершён</h2><p>Ответы сохранены локально на этом устройстве. Можно вернуться в сохранённый проект и изменить любой вопрос.</p><div class="actions"><button type="button" class="primary" id="projectBtn">Вернуться к проекту</button><button type="button" class="secondary" id="exportBtn">Скачать ответы</button><button type="button" class="secondary" id="restartBtn">Пройти заново</button></div></section>`;
  document.getElementById('projectBtn').onclick=()=>{state.completed=false;state.started=true;save();render()};
  document.getElementById('exportBtn').onclick=()=>{
    const payload=buildExportData();
@@ -544,5 +542,35 @@ function complete(){
    state.current=0;state.answers={};state.otherTexts={};state.completed=false;state.started=true;save();render();
  };
 }
+function startTestAction(){
+ state.started=true;
+ state.completed=false;
+ save();
+ render();
+}
+function restartTestAction(){
+ if(!confirm('Начать тест заново? Сохранённые ответы будут удалены.')) return;
+ state.current=0;
+ state.answers={};
+ state.otherTexts={};
+ state.completed=false;
+ state.started=true;
+ save();
+ render();
+}
+function delegatedAction(e){
+ const target=e.target&&e.target.closest?e.target.closest('#startBtn,#restartBtn'):null;
+ if(!target) return;
+ if(e.type==='pointerup' && e.pointerType && e.pointerType!=='touch') return;
+ if(e.type==='click' && window.__lastTouchAction && Date.now()-window.__lastTouchAction<700) return;
+ if(e.type==='pointerup') window.__lastTouchAction=Date.now();
+ e.preventDefault();
+ e.stopPropagation();
+ if(target.id==='startBtn') startTestAction();
+ else if(target.id==='restartBtn') restartTestAction();
+}
+document.addEventListener('pointerup',delegatedAction,true);
+document.addEventListener('click',delegatedAction,true);
+
 render();
 </script></body></html>
