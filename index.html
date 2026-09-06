@@ -161,11 +161,145 @@ function migrateLegacy(){
 function loadRaw(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(e){return null}}
 migrateLegacy();
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]) )}
-function answered(v){if(v==null)return false;if(typeof v==='string')return !!v.trim();if(Array.isArray(v))return v.length>0;if(typeof v==='object')return v.choice!==undefined;return true}
+function answered(v,q=null){
+ if(q) return isValidAnswer(q,v);
+ if(v==null)return false;
+ if(typeof v==='string')return !!v.trim();
+ if(Array.isArray(v))return v.length>0;
+ if(typeof v==='object' && !Array.isArray(v)){
+   return v.choice!==undefined && v.choice!==null;
+ }
+ return true;
+}
+function isValidAnswer(q,v){
+ if(v==null)return false;
+ if(q.type==='single'){
+   const choice=v&&typeof v==='object'&&!Array.isArray(v)?v.choice:v;
+   return Number.isInteger(choice) && choice>=0 && choice<q.options.length;
+ }
+ if(q.type==='multi'){
+   return Array.isArray(v) && v.length>0 && v.every(i=>Number.isInteger(i)&&i>=0&&i<q.options.length);
+ }
+ if(q.type==='scale'){
+   return Number.isFinite(Number(v)) && Number(v)>=0 && Number(v)<=10;
+ }
+ if(q.type==='text'){
+   return typeof v==='string' && !!v.trim();
+ }
+ if(q.type==='scenario'){
+   return !!v && typeof v==='object'&&!Array.isArray(v) &&
+     Number.isInteger(v.choice) && v.choice>=0 && v.choice<q.options.length;
+ }
+ return answered(v);
+}
+function isTestComplete(){
+ return QUESTIONS.length===89 && QUESTIONS.every(q=>answered(state.answers[q.id],q));
+}
+function otherTextFor(q,idOrIndex){
+ const t=state.otherTexts?.[q.id];
+ if(t!==undefined) return String(t);
+ const a=state.answers[q.id];
+ if(a&&typeof a==='object'&&!Array.isArray(a)&&a.otherText!==undefined) return String(a.otherText);
+ return "";
+}
+function optionWithText(q,index,source=q){
+ const i=Number(index);
+ if(!Number.isInteger(i)||!Array.isArray(source.options)||i<0||i>=source.options.length)return {index:i,text:""};
+ const text=String(source.options[i]);
+ const out={index:i,text};
+ if(/^другое$/i.test(text.trim())) out.otherText=otherTextFor(q,i);
+ return out;
+}
+function normalizedScale(value,min,max){
+ if(value===undefined||value===null||value==="") return null;
+ return {value:Number(value),min:String(min??"0"),max:String(max??"10")};
+}
+function buildExportData(){
+ const answeredQuestionIds=QUESTIONS.filter(q=>answered(state.answers[q.id],q)).map(q=>q.id);
+ const unansweredQuestionIds=QUESTIONS.filter(q=>!answered(state.answers[q.id],q)).map(q=>q.id);
+ const responses=QUESTIONS.filter(q=>answered(state.answers[q.id],q)).map(q=>{
+   const raw=state.answers[q.id];
+   const response={
+     questionId:q.id,
+     questionNumber:q.id,
+     block:q.block,
+     questionText:q.text,
+     type:q.type,
+     answer:{}
+   };
+   if(q.type==='single'){
+     const choice=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw.choice:raw;
+     response.answer.choice=optionWithText(q,choice);
+     if(raw&&typeof raw==='object'&&!Array.isArray(raw)&&raw.extraText!==undefined){
+       response.answer.extraText=String(raw.extraText);
+     }
+   }else if(q.type==='multi'){
+     response.answer.choices=raw.map(i=>optionWithText(q,i));
+   }else if(q.type==='scale'){
+     response.answer.scale=normalizedScale(raw,q.minLabel||"0",q.maxLabel||"10");
+   }else if(q.type==='text'){
+     response.answer.text=String(raw);
+   }else if(q.type==='scenario'){
+     const v=raw||{};
+     response.answer.choice=optionWithText(q,v.choice);
+     response.answer.scale=normalizedScale(v.scale,q.scaleMin||"0",q.scaleMax||"10");
+     response.answer.text=String(v.text??"");
+     if(q.extra){
+       if(q.extra.kind==='single' && v.extraChoice!==undefined){
+         response.answer.extraChoice=optionWithText(q,v.extraChoice,q.extra);
+       }
+       if(q.extra.kind==='multi' && Array.isArray(v.extraMulti)){
+         response.answer.extraMulti=v.extraMulti.map(i=>optionWithText(q.extra,i));
+       }
+       if(q.extra.kind==='scale' || q.extra.scaleLabel || q.extra.extraScale){
+         if(v.extraScale!==undefined){
+           response.answer.extraScale=normalizedScale(
+             v.extraScale,
+             q.extra.min||"0",
+             q.extra.maxLabel||q.extra.max||"10"
+           );
+         }
+       }
+       if(q.extra.kind==='single' && q.extra.extraScale && v.extraScale!==undefined){
+         response.answer.extraScale=normalizedScale(v.extraScale,q.extra.min||"0",q.extra.max||"10");
+       }
+       response.extra={
+         kind:q.extra.kind,
+         label:q.extra.label
+       };
+       if(q.extra.kind==='single') response.extra.options=q.extra.options?.map((text,index)=>({index,text}));
+       if(q.extra.kind==='multi') response.extra.options=q.extra.options?.map((text,index)=>({index,text}));
+       if(q.extra.scaleLabel) response.extra.scaleLabel=q.extra.scaleLabel;
+     }
+   }
+   return response;
+ });
+ const answeredCount=answeredQuestionIds.length;
+ return {
+   test:'СЪЕЗЖАЕМСЯ',
+   schemaVersion:'1.0',
+   participant:state.name||'',
+   totalQuestions:QUESTIONS.length,
+   answeredCount,
+   completionPercent:Number(((answeredCount/QUESTIONS.length)*100).toFixed(2)),
+   completed:answeredCount===QUESTIONS.length && isTestComplete(),
+   currentQuestion:state.current+1,
+   answeredQuestionIds,
+   unansweredQuestionIds,
+   responses,
+   rawAnswers:JSON.parse(JSON.stringify(state.answers||{})),
+   otherTexts:JSON.parse(JSON.stringify(state.otherTexts||{}))
+ };
+}
 function app(){return document.getElementById('app')}
 function render(){
+ const actualComplete=isTestComplete();
+ if(state.completed!==actualComplete && state.started){
+   state.completed=actualComplete;
+   save();
+ }
  if(!state.started){start();return}
- if(state.completed){complete();return}
+ if(state.completed && actualComplete){complete();return}
  question();
 }
 function start(){
@@ -201,7 +335,7 @@ function openNavigator(){
  });
  const blocks=Object.entries(groups).map(([block,g])=>{
    const items=g.items.map(({q,i})=>{
-     const done=answered(state.answers[q.id]);
+     const done=answered(state.answers[q.id],q);
      const current=i===state.current;
      return `<button type="button" class="question-nav-item ${done?'answered ':''}${current?'current':''}" data-jump="${i}">${q.id}${done?' ✓':''}</button>`;
    }).join("");
@@ -369,13 +503,27 @@ function extraScenario(q,v){
  if(e.kind==="multi"){const arr=Array.isArray(v.extraMulti)?v.extraMulti:[];const max=Number.isFinite(Number(e.max))?Number(e.max):2;h+=`<div class="subquestion">${esc(e.label)}</div><div class="option-list">${e.options.map((o,i)=>`<button type="button" class="option multi extra-multi ${arr.includes(i)?"selected":""}" data-extra-multi="${i}">${esc(o)}</button>`).join("")}</div><div class="counter">${arr.length} / ${max} выбрано</div><div class="subquestion">${esc(e.scaleLabel||e.extraScale||"")}</div>${scaleMarkup("extraScale",v.extraScale,e.min,e.maxLabel||e.max)}`;}if(e.kind==="single"&&e.extraScale)h+=`<div class="subquestion">${esc(e.extraScale)}</div>${scaleMarkup("extraScale",v.extraScale,e.min,e.max)}`;
  return h+"</div>";
 }
-function next(){if(!answered(state.answers[QUESTIONS[state.current].id]))return;if(state.current<88){state.current++;save();render()}else{state.completed=true;save();render()}window.scrollTo({top:0,behavior:'smooth'})}
+function next(){
+ const q=QUESTIONS[state.current];
+ if(!answered(state.answers[q.id],q))return;
+ if(state.current<88){
+   state.current++;
+   save();
+   render();
+ }else{
+   state.completed=isTestComplete();
+   save();
+   render();
+ }
+ window.scrollTo({top:0,behavior:'smooth'});
+}
 function back(){if(state.current>0){state.current--;save();render();window.scrollTo({top:0,behavior:'smooth'})}else{state.started=false;save();render()}}
 function complete(){
- const payload={test:'СЪЕЗЖАЕМСЯ',version:'stage-5-full',participant:state.name||'',completed:true,completedAt:new Date().toISOString(),answers:state.answers,otherTexts:state.otherTexts};
+ const payload=buildExportData();
  app().innerHTML=`<section class="screen center-screen completion"><div class="completion-icon">✓</div><h2>Тест завершён</h2><p>Ответы сохранены локально на этом устройстве. Можно вернуться в сохранённый проект и изменить любой вопрос.</p><div class="actions"><button class="primary" id="projectBtn">Вернуться к проекту</button><button class="secondary" id="exportBtn">Скачать ответы</button><button class="secondary" id="restartBtn">Пройти заново</button></div></section>`;
  document.getElementById('projectBtn').onclick=()=>{state.completed=false;state.started=true;save();render()};
  document.getElementById('exportBtn').onclick=()=>{
+   const payload=buildExportData();
    const b=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`Съезжаемся — ${state.name||'участник'} — ответы.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
  };
