@@ -192,12 +192,15 @@ function opts(q,val,multi=false,extra=false){
 
 function openNavigator(){
  const groups={};
- QUESTIONS.forEach((q,i)=>{(groups[q.block]||(groups[q.block]={title:q.blockTitle,items:[]})).items.push({q,i})});
+ QUESTIONS.forEach((q,i)=>{
+   if(!groups[q.block]) groups[q.block]={title:q.blockTitle,items:[]};
+   groups[q.block].items.push({q,i});
+ });
  const blocks=Object.entries(groups).map(([block,g])=>{
    const items=g.items.map(({q,i})=>{
      const done=answered(state.answers[q.id]);
      const current=i===state.current;
-     return `<button type="button" class="question-nav-item ${done?'answered ':''}${current?'current':''}" data-jump="${i}" aria-label="Вопрос ${q.id}${done?', отвечен':''}">${q.id}${done?' ✓':''}</button>`;
+     return `<button type="button" class="question-nav-item ${done?'answered ':''}${current?'current':''}" data-jump="${i}">${q.id}${done?' ✓':''}</button>`;
    }).join("");
    return `<div class="question-nav-block">Блок ${block} · ${esc(g.title)}</div><div class="question-nav-grid">${items}</div>`;
  }).join("");
@@ -205,17 +208,27 @@ function openNavigator(){
  wrap.className="question-nav";
  wrap.id="questionNavigator";
  wrap.innerHTML=`<div class="question-nav-panel" role="dialog" aria-modal="true" aria-label="Навигация по вопросам">
-   <div class="question-nav-head"><div class="question-nav-title">Все вопросы</div><button type="button" class="question-nav-close" id="closeNavigator" aria-label="Закрыть">×</button></div>
-   <p class="question-nav-hint">Нажми на номер, чтобы сразу перейти к вопросу. ✓ — уже отвечено.</p>
+   <div class="question-nav-head">
+     <div><div class="question-nav-title">Все вопросы</div><div class="question-nav-subtitle">Можно перейти к любому вопросу</div></div>
+     <button type="button" class="question-nav-close" id="closeNavigator" aria-label="Закрыть">×</button>
+   </div>
+   <p class="question-nav-hint">Номер вопроса — прямой переход. ✓ — уже есть ответ.</p>
    <div class="question-nav-list">${blocks}</div>
  </div>`;
  document.body.appendChild(wrap);
- const close=()=>{wrap.remove();document.removeEventListener("keydown",escNav)};
+
+ const close=()=>{
+   wrap.remove();
+   document.removeEventListener("keydown",escNav);
+ };
  const escNav=e=>{if(e.key==="Escape")close()};
  document.getElementById("closeNavigator").onclick=close;
  wrap.addEventListener("click",e=>{if(e.target===wrap)close()});
+
  wrap.querySelectorAll("[data-jump]").forEach(b=>b.onclick=()=>{
-   state.current=Number(b.dataset.jump);
+   const target=Number(b.dataset.jump);
+   if(!Number.isInteger(target)||target<0||target>=QUESTIONS.length)return;
+   state.current=target;
    save();
    close();
    render();
@@ -223,7 +236,6 @@ function openNavigator(){
  });
  document.addEventListener("keydown",escNav);
 }
-
 function nav(){document.getElementById('nextBtn').onclick=next;document.getElementById('backBtn').onclick=back;const n=document.getElementById('openNavigator');if(n)n.onclick=openNavigator}
 function bind(q,multi=false){
  document.querySelectorAll('[data-opt]').forEach(b=>b.onclick=()=>{
